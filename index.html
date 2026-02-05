@@ -2,193 +2,88 @@
 <html lang="en-GB">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Traitors UK S4 — Notes (No Spoilers)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Traitors UK S4 Notes (No Spoilers)</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="app-header">
-    <div class="title">
-      <h1>🕵️‍♀️ The Traitors UK — Series 4 Notes</h1>
-      <p class="subtitle">No spoilers • Your own guesses only • Autosaves ✨</p>
-    </div>
-    <div class="header-actions">
-      <button id="btnNewEpisode" class="btn">➕ New Episode</button>
-      <button id="btnExport" class="btn">⬇️ Export</button>
-      <label class="btn file-btn" for="importFile">⬆️ Import</label>
-      <input id="importFile" type="file" accept="application/json" hidden />
-      <button id="btnReset" class="btn btn-danger">🗑️ Reset</button>
-    </div>
+  <header>
+    <h1>🕵️‍♀️ Traitors UK S4 Notes</h1>
+    <p class="sub">Spoiler-free tracker: cast + your notes only.</p>
   </header>
 
-  <main class="layout">
-    <aside class="sidebar">
-      <section class="panel">
-        <h2>📺 Episodes</h2>
-        <div class="row">
-          <input id="episodeSearch" class="input" placeholder="Search episodes…" />
-        </div>
-        <ul id="episodeList" class="list"></ul>
-      </section>
+  <main class="grid">
+    <section class="panel">
+      <h2>👥 Contestants</h2>
 
-      <section class="panel">
-        <h2>📊 Series Progress</h2>
-        <div class="field">
-          <label>Favourite contestant so far</label>
-          <input id="seriesFavourite" class="input" placeholder="Name…" />
-        </div>
-        <div class="field">
-          <label>Most suspicious contestant</label>
-          <input id="seriesSuspicious" class="input" placeholder="Name…" />
-        </div>
-        <div class="field">
-          <label>Best strategist</label>
-          <input id="seriesStrategist" class="input" placeholder="Name…" />
-        </div>
-        <div class="field">
-          <label>Most entertaining player</label>
-          <input id="seriesEntertaining" class="input" placeholder="Name…" />
-        </div>
-      </section>
-    </aside>
+      <form id="addContestantForm" class="card">
+        <label>
+          Name
+          <input id="cName" type="text" placeholder="e.g. Alex" required />
+        </label>
 
-    <section class="content">
-      <div class="tabs">
-        <button class="tab active" data-tab="episode">Episode</button>
-        <button class="tab" data-tab="contestants">Contestants</button>
-        <button class="tab" data-tab="board">Suspicion Board</button>
-        <button class="tab" data-tab="alliances">Alliances</button>
+        <label>
+          Photo (optional)
+          <input id="cPhoto" type="file" accept="image/*" />
+          <small>Stored locally in your browser. You can add/replace later.</small>
+        </label>
+
+        <button type="submit">Add contestant</button>
+      </form>
+
+      <div class="row">
+        <input id="contestantSearch" type="search" placeholder="Search contestants…" />
+        <button id="clearAll" class="danger" type="button" title="Deletes everything">Clear all</button>
       </div>
 
-      <!-- EPISODE TAB -->
-      <section id="tab-episode" class="tab-panel active">
-        <div class="panel">
-          <div class="two-col">
-            <div class="field">
-              <label>Episode</label>
-              <input id="epNumber" class="input" placeholder="e.g., 1" />
-            </div>
-            <div class="field">
-              <label>Date watched</label>
-              <input id="epDate" class="input" type="date" />
-            </div>
-          </div>
+      <div id="contestantList" class="contestants"></div>
+    </section>
 
-          <div class="two-col">
-            <div class="field">
-              <label>Overall rating</label>
-              <div class="rating">
-                <input id="epRating" class="input" type="number" min="1" max="5" step="1" placeholder="1–5" />
-                <span class="hint">⭐</span>
-              </div>
-            </div>
-            <div class="field">
-              <label>Quick vibe summary (1–2 sentences)</label>
-              <input id="epVibe" class="input" placeholder="Short summary…" />
-            </div>
-          </div>
+    <section class="panel">
+      <h2>📝 Notes</h2>
 
-          <div class="field">
-            <label>Key challenges</label>
-            <textarea id="epChallenges" class="textarea" rows="3" placeholder="What happened in tasks/challenges (no spoilers)…"></textarea>
-          </div>
+      <div id="selectedBar" class="selected muted">
+        Select a contestant to start writing notes.
+      </div>
 
-          <div class="field">
-            <label>Strategy moments noticed</label>
-            <textarea id="epStrategy" class="textarea" rows="3" placeholder="Moves, misdirection, persuasion…"></textarea>
-          </div>
+      <form id="addNoteForm" class="card" autocomplete="off">
+        <div class="row">
+          <label>
+            Episode
+            <input id="nEpisode" type="number" min="1" step="1" placeholder="1" required />
+          </label>
 
-          <div class="field">
-            <label>Social gameplay highlights</label>
-            <textarea id="epSocial" class="textarea" rows="3" placeholder="Who bonded, clashed, influenced…"></textarea>
-          </div>
-
-          <div class="field">
-            <label>Favourite moments</label>
-            <textarea id="epFavMoments" class="textarea" rows="3" placeholder="Funniest / most dramatic / best strategic…"></textarea>
-          </div>
-
-          <div class="field">
-            <label>Your predictions (no outcome spoilers)</label>
-            <textarea id="epPredictions" class="textarea" rows="3" placeholder="Who might go next, who’s smartest, surprises…"></textarea>
-          </div>
-
-          <div class="row right">
-            <button id="btnDeleteEpisode" class="btn btn-danger">Delete Episode</button>
-            <button id="btnSaveEpisode" class="btn btn-primary">Save</button>
-          </div>
+          <label>
+            Tags
+            <input id="nTags" type="text" placeholder="sus, trust, clue" />
+          </label>
         </div>
-      </section>
 
-      <!-- CONTESTANTS TAB -->
-      <section id="tab-contestants" class="tab-panel">
-        <div class="panel">
-          <div class="row space">
-            <h2>👥 Contestants</h2>
-            <button id="btnAddContestant" class="btn btn-primary">➕ Add Contestant</button>
-          </div>
+        <label>
+          Note
+          <textarea id="nText" rows="4" placeholder="What did you notice?" required></textarea>
+        </label>
 
-          <div class="row">
-            <input id="contestantSearch" class="input" placeholder="Search contestants…" />
-            <select id="contestantFilter" class="input">
-              <option value="all">All</option>
-              <option value="watch">Players to Watch 👀</option>
-              <option value="quiet">Quiet / Background 🌫️</option>
-            </select>
-          </div>
+        <button type="submit" id="addNoteBtn" disabled>Add note</button>
+      </form>
 
-          <div id="contestantGrid" class="grid"></div>
+      <div class="row">
+        <input id="noteSearch" type="search" placeholder="Search notes…" />
+        <div class="row">
+          <button id="exportBtn" type="button">Export</button>
+          <label class="importBtn">
+            Import
+            <input id="importInput" type="file" accept="application/json" hidden />
+          </label>
         </div>
-      </section>
+      </div>
 
-      <!-- BOARD TAB -->
-      <section id="tab-board" class="tab-panel">
-        <div class="panel">
-          <h2>🧩 Suspicion Board</h2>
-          <p class="micro">Track your guesses only — no spoilers ✋</p>
-
-          <div class="two-col">
-            <div class="field">
-              <label>Possible Traitors</label>
-              <textarea id="boardTraitors" class="textarea" rows="6" placeholder="Name — why suspicious — evidence — doubts…"></textarea>
-            </div>
-            <div class="field">
-              <label>Likely Faithful</label>
-              <textarea id="boardFaithful" class="textarea" rows="6" placeholder="Name — why trustworthy — patterns…"></textarea>
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Behaviour patterns to watch</label>
-            <textarea id="boardBehaviours" class="textarea" rows="4" placeholder="Who talks most, avoids attention, emotional cues…"></textarea>
-          </div>
-
-          <div class="row right">
-            <button id="btnSaveBoard" class="btn btn-primary">Save</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- ALLIANCES TAB -->
-      <section id="tab-alliances" class="tab-panel">
-        <div class="panel">
-          <div class="row space">
-            <h2>🤝 Alliances & Dynamics</h2>
-            <button id="btnAddAlliance" class="btn btn-primary">➕ Add Alliance</button>
-          </div>
-
-          <div id="allianceList" class="stack"></div>
-
-          <div class="row right">
-            <button id="btnSaveAlliances" class="btn btn-primary">Save</button>
-          </div>
-        </div>
-      </section>
+      <div id="notesList" class="notes"></div>
     </section>
   </main>
 
-  <footer class="footer">
-    <p>Saved locally in your browser • No accounts • No spoilers • Made for Notes App vibes ✨</p>
+  <footer>
+    <p class="muted">💾 Saves in your browser (localStorage). No spoilers included.</p>
   </footer>
 
   <script src="app.js"></script>
