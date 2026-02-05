@@ -1,435 +1,425 @@
-/* The Traitors UK S4 Notes — No Spoilers
-   - localStorage autosave
-   - export/import JSON
-   - episodes + contestants + board + alliances
-*/
+/* Traitors UK S4 Notes (spoiler-free)
+   - Stores everything locally (localStorage)
+   - Preloads Episode 1 starting cast + headshots from RTS cast page (credited BBC/Studio Lambert)
+   - No roles/outcomes included
+*/ 
 
-const STORAGE_KEY = "traitors_uk_s4_notes_v1";
+const LS_KEY = "traitors_uk_s4_notes_v3"; // bump to reset data if needed
 
 const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+const state = {
+  data: loadData(),
+  selectedContestantId: null,
+};
 
-const defaultState = () => ({
-  meta: { version: 1, updatedAt: new Date().toISOString() },
-  selectedEpisodeId: null,
-  episodes: [],
-  contestants: [],
-  board: { traitors: "", faithful: "", behaviours: "" },
-  alliances: [],
-  series: { favourite: "", suspicious: "", strategist: "", entertaining: "" }
-});
+function uid() {
+  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
 
-let state = load();
-
-function load(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return defaultState();
+function loadData() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return { contestants: [], notes: [] };
     const parsed = JSON.parse(raw);
-    return { ...defaultState(), ...parsed };
-  }catch{
-    return defaultState();
+    if (!parsed.contestants || !parsed.notes) return { contestants: [], notes: [] };
+    return parsed;
+  } catch {
+    return { contestants: [], notes: [] };
   }
 }
 
-function save(){
-  state.meta.updatedAt = new Date().toISOString();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state, null, 2));
-  renderEpisodeList();
+function saveData() {
+  localStorage.setItem(LS_KEY, JSON.stringify(state.data));
 }
 
-function setTab(tabName){
-  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tabName));
-  $$(".tab-panel").forEach(p => p.classList.toggle("active", p.id === `tab-${tabName}`));
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve(null);
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
-function renderEpisodeList(){
-  const q = ($("#episodeSearch").value || "").toLowerCase().trim();
-  const list = $("#episodeList");
+function normaliseTags(tagStr) {
+  return (tagStr || "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+function placeholderSvg() {
+  return `
+  <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80">
+    <rect width="100%" height="100%" rx="14" fill="#1c244a"/>
+    <circle cx="40" cy="33" r="14" fill="#2a3160"/>
+    <rect x="18" y="50" width="44" height="22" rx="11" fill="#2a3160"/>
+  </svg>`;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+/* -------------------------
+   Preload cast (no spoilers)
+   Photos hosted on rts.org.uk (cast headshots)
+-------------------------- */
+
+const PRELOAD_CONTESTANTS = [
+  { name: "Netty Österberg", age: 42, from: "Glasgow", job: "Nursery school teacher", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/netty.jpg" },
+  { name: "Judy Wilson", age: 60, from: "Doncaster", job: "Child liaison officer", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/judy.jpg" },
+  { name: "Ben", age: 66, from: "Hampshire", job: "Royal Navy veteran", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/ben.jpg" },
+  { name: "Hugo Lodge", age: 51, from: "London", job: "Barrister", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/hugo.jpg" },
+  { name: "Ross Garshong", age: 37, from: "London", job: "Sales executive & personal trainer", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/ross.jpg" },
+  { name: "Marzook “Maz” Bana", age: 59, from: "Preston", job: "Civil servant", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/maz.jpg" },
+  { name: "Amanda Collier", age: 57, from: "Brighton", job: "Retired police detective", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/amanda.jpg" },
+  { name: "Reece Ward", age: 27, from: "Sheffield", job: "Sweet shop assistant", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/reece.jpg" },
+  { name: "Fiona Hughes", age: 62, from: "Swansea", job: "Local government officer", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/fiona.jpg" },
+  { name: "Harriet Tyce", age: 52, from: "London", job: "Crime writer & former barrister", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/harriet.jpg" },
+  { name: "Adam Waughman", age: 34, from: "Romford", job: "Builder", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/adam.jpg" },
+  { name: "Sam Little", age: 34, from: "North Yorkshire", job: "Account manager", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/sam.jpg" },
+  { name: "Jessie Stride", age: 28, from: "Hull", job: "Hairstylist", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/jessie.jpg" },
+  { name: "Ellie Buckley", age: 33, from: "London", job: "Psychologist", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/ellie.jpg" },
+  { name: "Matthew Hyndman", age: 35, from: "Edinburgh", job: "Creative director", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/matthew.jpg" },
+  { name: "Roxy Wilson", age: 32, from: "Amsterdam", job: "Recruiter", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/roxy.jpg" },
+  { name: "James Baker", age: 38, from: "Weymouth", job: "Gardener", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/james.jpg" },
+  { name: "Jade Scott", age: 25, from: "Warwick", job: "PhD student", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/jade.jpg" },
+  { name: "Faraaz Noor", age: 22, from: "Middlesbrough", job: "Internal auditor", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/faraaz.jpg" },
+  { name: "Jack Butler", age: 29, from: "Hatfield Heath", job: "Personal trainer", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/jack.jpg" },
+  // RTS uses a different filename for Rachel on their page:
+  { name: "Rachel Duffy", age: 42, from: "County Down", job: "Head of communications", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/p0mrgbv4.jpg" },
+  { name: "Stephen Libby", age: 32, from: "London", job: "Cyber security consultant", photoUrl: "https://rts.org.uk/sites/default/files/inline-images/stephen.jpg" },
+];
+
+function ensurePreloadOnce() {
+  if (state.data.contestants.length > 0) return;
+
+  state.data.contestants = PRELOAD_CONTESTANTS.map((c) => ({
+    id: uid(),
+    name: c.name,
+    age: c.age ?? null,
+    from: c.from ?? "",
+    job: c.job ?? "",
+    photoUrl: c.photoUrl ?? null,   // remote URL
+    photoDataUrl: null,             // optional user upload override
+  }));
+
+  saveData();
+}
+
+/* -------------------------
+   Contestants
+-------------------------- */
+
+function renderContestants() {
+  const list = $("#contestantList");
+  const q = ($("#contestantSearch").value || "").toLowerCase();
+
+  const items = state.data.contestants
+    .filter((c) => {
+      const hay = `${c.name} ${c.from || ""} ${c.job || ""} ${c.age || ""}`.toLowerCase();
+      return hay.includes(q);
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   list.innerHTML = "";
 
-  const filtered = state.episodes
-    .slice()
-    .sort((a,b) => (a.number||0) - (b.number||0))
-    .filter(ep => {
-      const label = `Episode ${ep.number || ""} ${ep.vibe || ""}`.toLowerCase();
-      return label.includes(q);
-    });
+  if (items.length === 0) {
+    list.innerHTML = `<div class="muted">No contestants yet. Add one above ✨</div>`;
+    return;
+  }
 
-  filtered.forEach(ep => {
-    const li = document.createElement("li");
-    li.className = (state.selectedEpisodeId === ep.id) ? "active" : "";
-    li.innerHTML = `
-      <div>
-        <strong>Episode ${ep.number || "?"}</strong>
-        <div class="meta">${(ep.dateWatched || "No date")} • ${ep.rating ? `${ep.rating}/5 ⭐` : "No rating"}</div>
+  for (const c of items) {
+    const div = document.createElement("div");
+    div.className = "contestant" + (c.id === state.selectedContestantId ? " active" : "");
+    div.setAttribute("role", "button");
+    div.tabIndex = 0;
+
+    const img = document.createElement("img");
+    img.className = "avatar";
+    img.alt = `${c.name} photo`;
+    img.src =
+      c.photoDataUrl ||
+      c.photoUrl ||
+      "data:image/svg+xml;charset=utf-8," + encodeURIComponent(placeholderSvg());
+
+    const meta = document.createElement("div");
+    meta.className = "cMeta";
+
+    const details = [
+      c.age ? `Age: ${c.age}` : null,
+      c.from ? `From: ${c.from}` : null,
+      c.job ? `Job: ${c.job}` : null,
+    ].filter(Boolean);
+
+    meta.innerHTML = `
+      <p class="cName">${escapeHtml(c.name)}</p>
+      <div class="cDetails">
+        ${details.map((d) => `<div>${escapeHtml(d)}</div>`).join("")}
       </div>
-      <span class="badge">${(ep.vibe || "No vibe").slice(0, 18)}${(ep.vibe || "").length > 18 ? "…" : ""}</span>
     `;
-    li.addEventListener("click", () => {
-      state.selectedEpisodeId = ep.id;
-      save();
-      fillEpisodeForm(ep);
-    });
-    list.appendChild(li);
-  });
 
-  // If none selected, auto-select first
-  if(!state.selectedEpisodeId && state.episodes.length){
-    state.selectedEpisodeId = state.episodes[0].id;
-    save();
-    fillEpisodeForm(state.episodes[0]);
+    const actions = document.createElement("div");
+    actions.className = "cActions";
+
+    const del = document.createElement("button");
+    del.className = "iconBtn danger";
+    del.type = "button";
+    del.title = "Delete contestant";
+    del.textContent = "🗑️";
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteContestant(c.id);
+    });
+
+    actions.appendChild(del);
+
+    div.appendChild(img);
+    div.appendChild(meta);
+    div.appendChild(actions);
+
+    div.addEventListener("click", () => selectContestant(c.id));
+    div.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") selectContestant(c.id);
+    });
+
+    list.appendChild(div);
   }
 }
 
-function currentEpisode(){
-  return state.episodes.find(e => e.id === state.selectedEpisodeId) || null;
+function selectContestant(id) {
+  state.selectedContestantId = id;
+  const c = state.data.contestants.find((x) => x.id === id);
+  $("#selectedBar").textContent = c ? `Selected: ${c.name}` : "Select a contestant to start writing notes.";
+  $("#addNoteBtn").disabled = !c;
+  renderContestants();
+  renderNotes();
 }
 
-function fillEpisodeForm(ep){
-  $("#epNumber").value = ep.number ?? "";
-  $("#epDate").value = ep.dateWatched ?? "";
-  $("#epRating").value = ep.rating ?? "";
-  $("#epVibe").value = ep.vibe ?? "";
-  $("#epChallenges").value = ep.challenges ?? "";
-  $("#epStrategy").value = ep.strategy ?? "";
-  $("#epSocial").value = ep.social ?? "";
-  $("#epFavMoments").value = ep.favMoments ?? "";
-  $("#epPredictions").value = ep.predictions ?? "";
-}
-
-function clearEpisodeForm(){
-  $("#epNumber").value = "";
-  $("#epDate").value = "";
-  $("#epRating").value = "";
-  $("#epVibe").value = "";
-  $("#epChallenges").value = "";
-  $("#epStrategy").value = "";
-  $("#epSocial").value = "";
-  $("#epFavMoments").value = "";
-  $("#epPredictions").value = "";
-}
-
-function newEpisode(){
-  const nextNum = (state.episodes.reduce((m,e)=>Math.max(m, Number(e.number||0)), 0) + 1) || 1;
-  const ep = {
+function addContestant(name, photoDataUrl) {
+  state.data.contestants.push({
     id: uid(),
-    number: nextNum,
-    dateWatched: "",
-    rating: "",
-    vibe: "",
-    challenges: "",
-    strategy: "",
-    social: "",
-    favMoments: "",
-    predictions: ""
-  };
-  state.episodes.push(ep);
-  state.selectedEpisodeId = ep.id;
-  save();
-  fillEpisodeForm(ep);
-  setTab("episode");
-}
-
-function saveEpisodeFromForm(){
-  const ep = currentEpisode();
-  if(!ep) return;
-
-  ep.number = $("#epNumber").value.trim();
-  ep.dateWatched = $("#epDate").value;
-  ep.rating = $("#epRating").value.trim();
-  ep.vibe = $("#epVibe").value.trim();
-  ep.challenges = $("#epChallenges").value.trim();
-  ep.strategy = $("#epStrategy").value.trim();
-  ep.social = $("#epSocial").value.trim();
-  ep.favMoments = $("#epFavMoments").value.trim();
-  ep.predictions = $("#epPredictions").value.trim();
-
-  save();
-}
-
-function deleteEpisode(){
-  const ep = currentEpisode();
-  if(!ep) return;
-  state.episodes = state.episodes.filter(e => e.id !== ep.id);
-  state.selectedEpisodeId = state.episodes[0]?.id ?? null;
-  save();
-  const next = currentEpisode();
-  if(next) fillEpisodeForm(next);
-  else clearEpisodeForm();
-}
-
-function renderContestants(){
-  const q = ($("#contestantSearch").value || "").toLowerCase().trim();
-  const filter = $("#contestantFilter").value;
-  const grid = $("#contestantGrid");
-  grid.innerHTML = "";
-
-  const items = state.contestants
-    .slice()
-    .sort((a,b)=> (a.name||"").localeCompare(b.name||""))
-    .filter(c => (c.name||"").toLowerCase().includes(q))
-    .filter(c => filter === "all" ? true : c.group === filter);
-
-  items.forEach(c => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <div class="card-head">
-        <div>
-          <h3>${escapeHtml(c.name || "Unnamed")}</h3>
-          <div class="meta">${c.group === "watch" ? "Players to Watch 👀" : "Quiet / Background 🌫️"}</div>
-        </div>
-        <div class="mini-actions">
-          <button class="btn" data-action="toggle">${c.group === "watch" ? "🌫️ Mark Quiet" : "👀 Mark Watch"}</button>
-          <button class="btn btn-danger" data-action="delete">🗑️ Delete</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>Role suspicion</label>
-        <input class="input" data-field="role" value="${escapeAttr(c.role || "")}" placeholder="Your suspicion…" />
-      </div>
-      <div class="field">
-        <label>Behaviour notes</label>
-        <textarea class="textarea" rows="2" data-field="behaviour" placeholder="Short notes…">${escapeHtml(c.behaviour || "")}</textarea>
-      </div>
-      <div class="two-col">
-        <div class="field">
-          <label>Trust level (1–5)</label>
-          <input class="input" type="number" min="1" max="5" step="1" data-field="trust" value="${escapeAttr(c.trust || "")}" placeholder="1–5" />
-        </div>
-        <div class="field">
-          <label>Changes this episode</label>
-          <input class="input" data-field="changes" value="${escapeAttr(c.changes || "")}" placeholder="What changed…" />
-        </div>
-      </div>
-    `;
-
-    card.querySelectorAll("[data-field]").forEach(el => {
-      el.addEventListener("input", () => {
-        const field = el.dataset.field;
-        c[field] = el.value;
-        save();
-      });
-    });
-
-    card.querySelector('[data-action="toggle"]').addEventListener("click", () => {
-      c.group = (c.group === "watch") ? "quiet" : "watch";
-      save();
-      renderContestants();
-    });
-
-    card.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      state.contestants = state.contestants.filter(x => x.id !== c.id);
-      save();
-      renderContestants();
-    });
-
-    grid.appendChild(card);
+    name,
+    age: null,
+    from: "",
+    job: "",
+    photoUrl: null,
+    photoDataUrl: photoDataUrl || null,
   });
-}
-
-function addContestant(){
-  const name = prompt("Contestant name?");
-  if(!name) return;
-  state.contestants.push({
-    id: uid(),
-    name: name.trim(),
-    group: "watch",
-    role: "",
-    behaviour: "",
-    trust: "",
-    changes: ""
-  });
-  save();
+  saveData();
   renderContestants();
 }
 
-function renderAlliances(){
-  const wrap = $("#allianceList");
-  wrap.innerHTML = "";
-  state.alliances.forEach(a => {
-    const div = document.createElement("div");
-    div.className = "alliance";
-    div.innerHTML = `
-      <div class="row space">
-        <strong>${escapeHtml(a.title || "Alliance")}</strong>
-        <button class="btn btn-danger" data-action="delete">🗑️</button>
-      </div>
-      <div class="field">
-        <label>Names involved</label>
-        <input class="input" data-field="names" value="${escapeAttr(a.names || "")}" placeholder="A, B, C…" />
-      </div>
-      <div class="field">
-        <label>Notes</label>
-        <textarea class="textarea" rows="2" data-field="notes" placeholder="Dynamics, tension, influence…">${escapeHtml(a.notes || "")}</textarea>
-      </div>
-    `;
-    div.querySelectorAll("[data-field]").forEach(el => {
-      el.addEventListener("input", () => {
-        a[el.dataset.field] = el.value;
-        save();
-      });
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      state.alliances = state.alliances.filter(x => x.id !== a.id);
-      save();
-      renderAlliances();
-    });
-    wrap.appendChild(div);
+function deleteContestant(id) {
+  state.data.contestants = state.data.contestants.filter((x) => x.id !== id);
+  state.data.notes = state.data.notes.filter((n) => n.contestantId !== id);
+
+  if (state.selectedContestantId === id) state.selectedContestantId = null;
+
+  saveData();
+  $("#selectedBar").textContent = "Select a contestant to start writing notes.";
+  $("#addNoteBtn").disabled = true;
+  renderContestants();
+  renderNotes();
+}
+
+/* -------------------------
+   Notes
+-------------------------- */
+
+function addNote(contestantId, episode, text, tags) {
+  state.data.notes.push({
+    id: uid(),
+    contestantId,
+    episode: Number(episode),
+    text,
+    tags,
+    createdAt: new Date().toISOString(),
   });
+  saveData();
+  renderNotes();
 }
 
-function addAlliance(){
-  state.alliances.push({ id: uid(), title: "Alliance", names: "", notes: "" });
-  save();
-  renderAlliances();
+function deleteNote(id) {
+  state.data.notes = state.data.notes.filter((n) => n.id !== id);
+  saveData();
+  renderNotes();
 }
 
-function saveBoardFromForm(){
-  state.board.traitors = $("#boardTraitors").value.trim();
-  state.board.faithful = $("#boardFaithful").value.trim();
-  state.board.behaviours = $("#boardBehaviours").value.trim();
-  save();
+function renderNotes() {
+  const list = $("#notesList");
+  const q = ($("#noteSearch").value || "").toLowerCase();
+  const cid = state.selectedContestantId;
+
+  list.innerHTML = "";
+
+  if (!cid) {
+    list.innerHTML = `<div class="muted">Pick a contestant to see their notes 🗒️</div>`;
+    return;
+  }
+
+  const notes = state.data.notes
+    .filter((n) => n.contestantId === cid)
+    .filter((n) => {
+      const tagText = (n.tags || []).join(", ").toLowerCase();
+      return (
+        n.text.toLowerCase().includes(q) ||
+        String(n.episode).includes(q) ||
+        tagText.includes(q)
+      );
+    })
+    .sort((a, b) => (a.episode - b.episode) || b.createdAt.localeCompare(a.createdAt));
+
+  if (notes.length === 0) {
+    list.innerHTML = `<div class="muted">No notes yet. Add your first one above ✍️</div>`;
+    return;
+  }
+
+  for (const n of notes) {
+    const div = document.createElement("div");
+    div.className = "note";
+
+    const top = document.createElement("div");
+    top.className = "noteTop";
+
+    const badges = document.createElement("div");
+    badges.className = "badges";
+
+    const ep = document.createElement("span");
+    ep.className = "badge";
+    ep.textContent = `Episode ${n.episode}`;
+    badges.appendChild(ep);
+
+    for (const t of n.tags || []) {
+      const b = document.createElement("span");
+      b.className = "badge";
+      b.textContent = t;
+      badges.appendChild(b);
+    }
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "iconBtn danger";
+    del.title = "Delete note";
+    del.textContent = "🗑️";
+    del.addEventListener("click", () => deleteNote(n.id));
+
+    top.appendChild(badges);
+    top.appendChild(del);
+
+    const p = document.createElement("p");
+    p.className = "noteText";
+    p.textContent = n.text;
+
+    div.appendChild(top);
+    div.appendChild(p);
+    list.appendChild(div);
+  }
 }
 
-function fillBoardForm(){
-  $("#boardTraitors").value = state.board.traitors || "";
-  $("#boardFaithful").value = state.board.faithful || "";
-  $("#boardBehaviours").value = state.board.behaviours || "";
-}
+/* -------------------------
+   Export / Import / Clear
+-------------------------- */
 
-function fillSeriesForm(){
-  $("#seriesFavourite").value = state.series.favourite || "";
-  $("#seriesSuspicious").value = state.series.suspicious || "";
-  $("#seriesStrategist").value = state.series.strategist || "";
-  $("#seriesEntertaining").value = state.series.entertaining || "";
-}
-
-function hookSeriesAutosave(){
-  $("#seriesFavourite").addEventListener("input", e => { state.series.favourite = e.target.value; save(); });
-  $("#seriesSuspicious").addEventListener("input", e => { state.series.suspicious = e.target.value; save(); });
-  $("#seriesStrategist").addEventListener("input", e => { state.series.strategist = e.target.value; save(); });
-  $("#seriesEntertaining").addEventListener("input", e => { state.series.entertaining = e.target.value; save(); });
-}
-
-function exportJSON(){
-  const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+function exportData() {
+  const blob = new Blob([JSON.stringify(state.data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `traitors-uk-s4-notes-${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a);
+  a.download = "traitors-uk-s4-notes.json";
   a.click();
-  a.remove();
   URL.revokeObjectURL(url);
 }
 
-function importJSON(file){
-  const reader = new FileReader();
-  reader.onload = () => {
-    try{
-      const parsed = JSON.parse(reader.result);
-      // Light validation / merge
-      state = { ...defaultState(), ...parsed };
-      save();
-      // Re-render all
-      renderEpisodeList();
-      const ep = currentEpisode();
-      if(ep) fillEpisodeForm(ep); else clearEpisodeForm();
-      fillBoardForm();
-      fillSeriesForm();
-      renderContestants();
-      renderAlliances();
-      alert("Imported ✅");
-    }catch{
-      alert("Import failed — not valid JSON ❌");
-    }
-  };
-  reader.readAsText(file);
-}
+async function importData(file) {
+  const text = await file.text();
+  const parsed = JSON.parse(text);
 
-function resetAll(){
-  const ok = confirm("Reset everything? This will delete all notes in this browser.");
-  if(!ok) return;
-  state = defaultState();
-  save();
-  clearEpisodeForm();
-  fillBoardForm();
-  fillSeriesForm();
+  if (!parsed || !Array.isArray(parsed.contestants) || !Array.isArray(parsed.notes)) {
+    alert("That file doesn't look like a valid export.");
+    return;
+  }
+
+  state.data = parsed;
+  state.selectedContestantId = null;
+  saveData();
+  $("#selectedBar").textContent = "Select a contestant to start writing notes.";
+  $("#addNoteBtn").disabled = true;
   renderContestants();
-  renderAlliances();
+  renderNotes();
 }
 
-function escapeHtml(str){
-  return String(str)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-function escapeAttr(str){
-  return escapeHtml(str).replaceAll("\n"," ");
-}
-
-/* ---------- Wiring ---------- */
-function init(){
-  // Tabs
-  $$(".tab").forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
-
-  // Episodes
-  $("#btnNewEpisode").addEventListener("click", newEpisode);
-  $("#btnSaveEpisode").addEventListener("click", saveEpisodeFromForm);
-  $("#btnDeleteEpisode").addEventListener("click", deleteEpisode);
-  $("#episodeSearch").addEventListener("input", renderEpisodeList);
-
-  // Contestants
-  $("#btnAddContestant").addEventListener("click", addContestant);
-  $("#contestantSearch").addEventListener("input", renderContestants);
-  $("#contestantFilter").addEventListener("change", renderContestants);
-
-  // Board
-  $("#btnSaveBoard").addEventListener("click", saveBoardFromForm);
-
-  // Alliances
-  $("#btnAddAlliance").addEventListener("click", addAlliance);
-  $("#btnSaveAlliances").addEventListener("click", () => save());
-
-  // Series
-  hookSeriesAutosave();
-
-  // Export/Import/Reset
-  $("#btnExport").addEventListener("click", exportJSON);
-  $("#importFile").addEventListener("change", (e) => {
-    const file = e.target.files?.[0];
-    if(file) importJSON(file);
-    e.target.value = "";
-  });
-  $("#btnReset").addEventListener("click", resetAll);
-
-  // Fill forms
-  fillSeriesForm();
-  fillBoardForm();
-  renderEpisodeList();
+function clearAll() {
+  if (!confirm("Clear all contestants and notes? This cannot be undone.")) return;
+  state.data = { contestants: [], notes: [] };
+  state.selectedContestantId = null;
+  saveData();
+  $("#selectedBar").textContent = "Select a contestant to start writing notes.";
+  $("#addNoteBtn").disabled = true;
   renderContestants();
-  renderAlliances();
-
-  // If episode selected exists, fill it
-  const ep = currentEpisode();
-  if(ep) fillEpisodeForm(ep);
-
-  // Autosave on episode inputs (gentle)
-  ["#epNumber","#epDate","#epRating","#epVibe","#epChallenges","#epStrategy","#epSocial","#epFavMoments","#epPredictions"]
-    .forEach(sel => $(sel).addEventListener("input", () => {
-      const ep = currentEpisode();
-      if(!ep) return;
-      // Keep it light — update in memory then save
-      saveEpisodeFromForm();
-    }));
+  renderNotes();
 }
 
-init();
+/* -------------------------
+   Wire up UI
+-------------------------- */
+
+$("#addContestantForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("#cName").value.trim();
+  const file = $("#cPhoto").files[0] || null;
+  if (!name) return;
+
+  const photoDataUrl = await fileToDataUrl(file);
+  addContestant(name, photoDataUrl);
+
+  $("#cName").value = "";
+  $("#cPhoto").value = "";
+});
+
+$("#contestantSearch").addEventListener("input", renderContestants);
+$("#noteSearch").addEventListener("input", renderNotes);
+
+$("#addNoteForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const cid = state.selectedContestantId;
+  if (!cid) return;
+
+  const episode = $("#nEpisode").value;
+  const tags = normaliseTags($("#nTags").value);
+  const text = $("#nText").value.trim();
+  if (!episode || !text) return;
+
+  addNote(cid, episode, text, tags);
+
+  $("#nText").value = "";
+  $("#nTags").value = "";
+});
+
+$("#exportBtn").addEventListener("click", exportData);
+
+$("#importInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  await importData(file);
+  e.target.value = "";
+});
+
+$("#clearAll").addEventListener("click", clearAll);
+
+/* -------------------------
+   Initialise
+-------------------------- */
+
+ensurePreloadOnce();
+renderContestants();
+renderNotes();
